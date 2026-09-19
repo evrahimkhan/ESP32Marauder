@@ -169,12 +169,12 @@ jobs:
               gps.write_text(text)
           PY
       - name: Validate selected Arduino board configuration
-        run: arduino-cli board details --fqbn "esp32:esp32:esp32c5:FlashSize=8M,PartitionScheme=default_8MB,PSRAM=enabled" >/dev/null
+        run: arduino-cli board details --fqbn "esp32:esp32:esp32c6:CDCOnBoot=cdc,PartitionScheme=min_spiffs" >/dev/null
       - name: Compile firmware
-        run: arduino-cli compile --fqbn "esp32:esp32:esp32c5:FlashSize=8M,PartitionScheme=default_8MB,PSRAM=enabled" --build-property compiler.cpp.extra_flags="-DMARAUDER_C5" --output-dir firmware-output 'esp32_marauder'
+        run: arduino-cli compile --fqbn "esp32:esp32:esp32c6:CDCOnBoot=cdc,PartitionScheme=min_spiffs" --build-property compiler.cpp.extra_flags="-DMARAUDER_M5_NANO_C6" --output-dir firmware-output 'esp32_marauder'
       - name: Name firmware files for selected hardware
         env:
-          ESPFORGE_ARTIFACT_PREFIX: "ESP32-C5-DevKitC-1"
+          ESPFORGE_ARTIFACT_PREFIX: "M5NanoC6"
         run: |
           python - <<'PY'
           import os, pathlib, re
@@ -207,8 +207,8 @@ jobs:
       - name: Generate ESPForge flashing manifest
         env:
           ESPFORGE_FRAMEWORK: "arduino"
-          ESPFORGE_CHIP: "esp32c5"
-          ESPFORGE_CONFIG_DIGEST: "4ba54cae1daff747591409a67adf021f62c84ada1ac5fe12e0a86c3599e178a2"
+          ESPFORGE_CHIP: "esp32c6"
+          ESPFORGE_CONFIG_DIGEST: "4cdef5a82b74df76ba7de0d00e28ae9e5af6cb589b0dd2489362f58921799342"
           ESPFORGE_ANALYZER_VERSION: "targets-v11"
         run: |
           python - <<'PY'
