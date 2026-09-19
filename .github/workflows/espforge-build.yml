@@ -29,16 +29,249 @@ jobs:
           submodules: recursive
       - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
         with:
-          python-version: "3.12"
-      - name: Install PlatformIO
-        run: pip install --disable-pip-version-check platformio==6.1.19
-      - name: Build firmware
-        run: pio run
-      - name: Collect binaries
+          python-version: "3.11"
+      - name: Install Arduino CLI
         run: |
-          mkdir -p firmware-output
-          find . -maxdepth 1 -type f -name "*.bin" -exec cp {} firmware-output/ \;
-          find .pio/build -type f -name "*.bin" -exec cp --parents {} firmware-output/ \;
+          python -m pip install --disable-pip-version-check pyserial==3.5
+          curl --proto '=https' --tlsv1.2 -fsSLo arduino-cli.tar.gz https://github.com/arduino/arduino-cli/releases/download/v1.3.1/arduino-cli_1.3.1_Linux_64bit.tar.gz
+          echo "376428d7d45be640c00812a71612e1742edc2f5f9ee3742a2d6da7870e079588  arduino-cli.tar.gz" | sha256sum --check --strict
+          mkdir -p bin && tar -xzf arduino-cli.tar.gz -C bin arduino-cli
+          echo "$PWD/bin" >> "$GITHUB_PATH"
+      - name: Install ESP32 core
+        run: |
+          ./bin/arduino-cli config init
+          ./bin/arduino-cli config add board_manager.additional_urls https://espressif.github.io/arduino-esp32/package_esp32_index.json
+          ./bin/arduino-cli config set library.enable_unsafe_install true
+          ./bin/arduino-cli core update-index
+          ./bin/arduino-cli core install esp32:esp32@3.2.1
+
+      - name: Install detected libraries
+        run: |
+          arduino-cli lib install 'ArduinoJson@6.18.2'
+          arduino-cli lib install 'TFT_eSPI@2.5.43'
+          arduino-cli lib install 'XPT2046_Touchscreen@1.4'
+          arduino-cli lib install 'NimBLE-Arduino@1.4.2'
+          arduino-cli lib install 'LinkedList@1.3.3'
+          arduino-cli lib install 'EspSoftwareSerial@8.1.0'
+          arduino-cli lib install 'MicroNMEA@2.0.6'
+          arduino-cli lib install 'Adafruit NeoPixel@1.15.1'
+          arduino-cli lib install 'Adafruit BusIO@1.15.0'
+          arduino-cli lib install 'Adafruit MAX1704X@1.0.2'
+          arduino-cli lib install 'Adafruit TCA8418@1.0.2'
+          rm -rf "$RUNNER_TEMP/espforge-ESP32Ping"
+          git init -q "$RUNNER_TEMP/espforge-ESP32Ping"
+          git -C "$RUNNER_TEMP/espforge-ESP32Ping" remote add origin https://github.com/marian-craciunescu/ESP32Ping.git
+          git -C "$RUNNER_TEMP/espforge-ESP32Ping" fetch -q --depth=1 origin aadac3c08f5e6f5062faf26ae1b17e566e22728c
+          git -C "$RUNNER_TEMP/espforge-ESP32Ping" checkout -q --detach FETCH_HEAD
+          mkdir -p "$HOME/Arduino/libraries"
+          cp -R "$RUNNER_TEMP/espforge-ESP32Ping" "$HOME/Arduino/libraries/ESP32Ping"
+          rm -rf "$RUNNER_TEMP/espforge-AsyncTCP"
+          git init -q "$RUNNER_TEMP/espforge-AsyncTCP"
+          git -C "$RUNNER_TEMP/espforge-AsyncTCP" remote add origin https://github.com/ESP32Async/AsyncTCP.git
+          git -C "$RUNNER_TEMP/espforge-AsyncTCP" fetch -q --depth=1 origin b2e5f4f368b137442f66a9ba7242b8759e6aef59
+          git -C "$RUNNER_TEMP/espforge-AsyncTCP" checkout -q --detach FETCH_HEAD
+          mkdir -p "$HOME/Arduino/libraries"
+          cp -R "$RUNNER_TEMP/espforge-AsyncTCP" "$HOME/Arduino/libraries/AsyncTCP"
+          rm -rf "$RUNNER_TEMP/espforge-ESPAsyncWebServer"
+          git init -q "$RUNNER_TEMP/espforge-ESPAsyncWebServer"
+          git -C "$RUNNER_TEMP/espforge-ESPAsyncWebServer" remote add origin https://github.com/ESP32Async/ESPAsyncWebServer.git
+          git -C "$RUNNER_TEMP/espforge-ESPAsyncWebServer" fetch -q --depth=1 origin 4fc46e0c1b6ed559f7cd0c2548ed163a3e2b3412
+          git -C "$RUNNER_TEMP/espforge-ESPAsyncWebServer" checkout -q --detach FETCH_HEAD
+          mkdir -p "$HOME/Arduino/libraries"
+          cp -R "$RUNNER_TEMP/espforge-ESPAsyncWebServer" "$HOME/Arduino/libraries/ESPAsyncWebServer"
+          rm -rf "$RUNNER_TEMP/espforge-lv_arduino"
+          git init -q "$RUNNER_TEMP/espforge-lv_arduino"
+          git -C "$RUNNER_TEMP/espforge-lv_arduino" remote add origin https://github.com/lvgl/lv_arduino.git
+          git -C "$RUNNER_TEMP/espforge-lv_arduino" fetch -q --depth=1 origin 8651c35e977bddfd25bf9ef59a041f6ab243c7f2
+          git -C "$RUNNER_TEMP/espforge-lv_arduino" checkout -q --detach FETCH_HEAD
+          mkdir -p "$HOME/Arduino/libraries"
+          cp -R "$RUNNER_TEMP/espforge-lv_arduino" "$HOME/Arduino/libraries/lv_arduino"
+          rm -rf "$RUNNER_TEMP/espforge-JPEGDecoder"
+          git init -q "$RUNNER_TEMP/espforge-JPEGDecoder"
+          git -C "$RUNNER_TEMP/espforge-JPEGDecoder" remote add origin https://github.com/Bodmer/JPEGDecoder.git
+          git -C "$RUNNER_TEMP/espforge-JPEGDecoder" fetch -q --depth=1 origin 6a0912ba05532eab707bd092bd4fa43477e38f5c
+          git -C "$RUNNER_TEMP/espforge-JPEGDecoder" checkout -q --detach FETCH_HEAD
+          mkdir -p "$HOME/Arduino/libraries"
+          cp -R "$RUNNER_TEMP/espforge-JPEGDecoder" "$HOME/Arduino/libraries/JPEGDecoder"
+          python - <<'PY'
+          import pathlib, re, shutil
+          destination = pathlib.Path.home() / 'Arduino' / 'libraries'
+          destination.mkdir(parents=True, exist_ok=True)
+          def metadata(path):
+              values = {}
+              for line in path.read_text(errors='ignore').splitlines():
+                  if '=' in line:
+                      key, value = line.split('=', 1); values[key.strip().lower()] = value.strip()
+              return values
+          installed = {re.sub(r'[^a-z0-9]', '', metadata(path).get('name', path.parent.name).lower()) for path in destination.glob('*/library.properties')}
+          for properties in pathlib.Path('.').glob('**/library.properties'):
+              if '.git' in properties.parts or len(properties.parts) > 8: continue
+              info = metadata(properties); key = re.sub(r'[^a-z0-9]', '', info.get('name', properties.parent.name).lower())
+              if not key or key in installed: continue
+              target = destination / re.sub(r'[^A-Za-z0-9_.-]', '-', properties.parent.name)
+              if not target.exists(): shutil.copytree(properties.parent, target)
+              installed.add(key)
+          PY
+      - name: Fix source compatibility for selected toolchain
+        run: |
+          python - <<'PY'
+          import pathlib, re
+          root = pathlib.Path("esp32_marauder")
+          evil_h, evil_cpp = root / "EvilPortal.h", root / "EvilPortal.cpp"
+          if evil_h.is_file() and evil_cpp.is_file():
+              text = evil_h.read_text(errors="ignore")
+              text, changed = re.subn(r'(?m)^(\s*)char\s+index_html\s*\[MAX_HTML_SIZE\]\s*=\s*"TEST"\s*;', r'\1extern char index_html[MAX_HTML_SIZE];', text, count=1)
+              evil_h.write_text(text)
+              implementation = evil_cpp.read_text(errors="ignore")
+              if changed and not re.search(r'(?m)^\s*char\s+index_html\s*\[MAX_HTML_SIZE\]', implementation):
+                  implementation = implementation.replace('#include "EvilPortal.h"', '#include "EvilPortal.h"\n\n#ifndef HAS_PSRAM\nchar index_html[MAX_HTML_SIZE] = "TEST";\n#endif', 1)
+                  evil_cpp.write_text(implementation)
+          wifi_h, wifi_cpp = root / "WiFiScan.h", root / "WiFiScan.cpp"
+          if wifi_h.is_file() and wifi_cpp.is_file():
+              header = wifi_h.read_text(errors="ignore")
+              definitions = []
+              for name in ("operationInProgress", "connectionPending"):
+                  pattern = rf'(?m)^(\s*)bool\s+{name}\s*=\s*(true|false)\s*;'
+                  match = re.search(pattern, header)
+                  if match:
+                      definitions.append((name, match.group(2)))
+                      header = re.sub(pattern, rf'\1extern bool {name};', header, count=1)
+              wifi_h.write_text(header)
+              implementation = wifi_cpp.read_text(errors="ignore")
+              additions = ''.join(f'bool {name} = {value};\n' for name, value in definitions if not re.search(rf'(?m)^\s*bool\s+{name}\s*=', implementation))
+              if additions: implementation = implementation.replace('#include "WiFiScan.h"', '#include "WiFiScan.h"\n\n' + additions.rstrip(), 1)
+              # Rename the project implementation and every project call site together.
+              # Renaming only the first occurrence leaves RunSetup() referring to the
+              # ESP-IDF symbol that is intentionally hidden by the C declaration order.
+              implementation = implementation.replace('ieee80211_raw_frame_sanity_check(', 'marauder_ieee80211_raw_frame_sanity_check(')
+              wifi_cpp.write_text(implementation)
+          battery_h, battery_cpp = root / "BatteryInterface.h", root / "BatteryInterface.cpp"
+          if battery_h.is_file() and battery_cpp.is_file():
+              header = battery_h.read_text(errors="ignore")
+              header, changed = re.subn(r'(?m)^(\s*)AXP192\s+axp192_obj\s*;', r'\1extern AXP192 axp192_obj;', header, count=1)
+              battery_h.write_text(header)
+              implementation = battery_cpp.read_text(errors="ignore")
+              if changed and not re.search(r'(?m)^\s*AXP192\s+axp192_obj\s*;', implementation):
+                  implementation = implementation.replace('#include "BatteryInterface.h"', '#include "BatteryInterface.h"\n\n#ifdef HAS_AXP192\nAXP192 axp192_obj;\n#endif', 1)
+                  battery_cpp.write_text(implementation)
+          gps = root / "GpsInterface.cpp"
+          if gps.is_file():
+              text = gps.read_text(errors="ignore")
+              # ESP32/S3 cores already own Serial2, while chips with only two
+              # hardware UARTs (including ESP32-S2) do not declare it. Keep the
+              # project instance only where the core cannot provide one.
+              text = re.sub(r'(?m)^\s*HardwareSerial\s+Serial2\s*\(GPS_SERIAL_INDEX\)\s*;\s*$', '#if SOC_UART_NUM <= 2\nHardwareSerial Serial2(GPS_SERIAL_INDEX);\n#endif', text, count=1)
+              gps.write_text(text)
+          PY
+      - name: Validate selected Arduino board configuration
+        run: arduino-cli board details --fqbn "esp32:esp32:esp32:PartitionScheme=huge_app" >/dev/null
+      - name: Configure selected hardware model
+        env:
+          ESPFORGE_BOARD_CONFIG: "eyJzZWxlY3RlZCI6Ik1BUkFVREVSX1Y4IiwibWFjcm9zIjpbIk1BUkFVREVSX1Y3XzEiLCJNQVJBVURFUl9WOCIsIk1BUkFVREVSX01JTklfVjMiLCJNQVJBVURFUl9USVRMRV9CWVRFUyJdLCJwYXRocyI6WyJlc3AzMl9tYXJhdWRlci9jb25maWdzLmgiXX0="
+        run: |
+          python - <<'PY'
+          import base64, json, os, pathlib, re
+          cfg = json.loads(base64.b64decode(os.environ["ESPFORGE_BOARD_CONFIG"]))
+          names = set(cfg["macros"])
+          for filename in cfg["paths"]:
+              path = pathlib.Path(filename)
+              if not path.is_file():
+                  continue
+              lines = path.read_text(errors="ignore").splitlines(keepends=True)
+              output = []
+              for line in lines:
+                  match = re.match(r"^(\s*)(?://\s*)?#\s*define\s+([A-Z][A-Z0-9_]*)(.*)$", line)
+                  if not match or match.group(2) not in names:
+                      output.append(line); continue
+                  prefix, name, suffix = match.groups()
+                  ending = chr(10) if line.endswith(chr(10)) else ""
+                  if name == cfg["selected"]:
+                      output.append(f"{prefix}#define {name}{suffix.rstrip()}{ending}")
+                  else:
+                      output.append(f"{prefix}// ESPForge disabled: #define {name}{suffix.rstrip()}{ending}")
+              path.write_text("".join(output))
+          PY
+      - name: Compile firmware
+        run: arduino-cli compile --fqbn "esp32:esp32:esp32:PartitionScheme=huge_app" --output-dir firmware-output 'esp32_marauder'
+      - name: Name firmware files for selected hardware
+        env:
+          ESPFORGE_ARTIFACT_PREFIX: "Marauder-V8"
+        run: |
+          python - <<'PY'
+          import os, pathlib, re
+          root = pathlib.Path("firmware-output")
+          prefix = os.environ["ESPFORGE_ARTIFACT_PREFIX"]
+          def role(path):
+              name = path.name.lower()
+              if "bootloader" in name: return "bootloader", ".bin"
+              if "partition" in name: return "partitions", ".bin"
+              if "merged" in name or "merged-flash" in name: return "merged", ".bin"
+              if any(item in name for item in ("littlefs", "spiffs", "fatfs", "filesystem")): return "filesystem", ".bin"
+              if name.endswith(".elf"): return "application", ".elf"
+              if name.endswith(".map"): return "application", ".map"
+              if name == "firmware.bin" or name.endswith(".ino.bin"): return "application", ".bin"
+              label = re.sub(r"[^a-z0-9_.-]+", "-", path.stem).strip(".-") or "firmware"
+              return label, path.suffix or ".bin"
+          for path in [item for item in root.rglob("*") if item.is_file()]:
+              label, extension = role(path)
+              filename = f"{prefix}-{label}{extension}"
+              destination, counter = root / filename, 2
+              while destination.exists() and destination != path:
+                  destination = root / f"{prefix}-{label}-{counter}{extension}"
+                  counter += 1
+              if destination != path:
+                  path.replace(destination)
+          for directory in sorted([item for item in root.rglob("*") if item.is_dir()], reverse=True):
+              try: directory.rmdir()
+              except OSError: pass
+          PY
+      - name: Generate ESPForge flashing manifest
+        env:
+          ESPFORGE_FRAMEWORK: "arduino"
+          ESPFORGE_CHIP: "esp32"
+          ESPFORGE_CONFIG_DIGEST: "8b7f279f404ed0e320ae16d6ca84a5b75a0a5944c470662244dd8f12b1fd2500"
+          ESPFORGE_ANALYZER_VERSION: "targets-v10"
+        run: |
+          python - <<'PY'
+          import hashlib, json, os, pathlib, subprocess
+          root = pathlib.Path("firmware-output")
+          offsets = {}
+          # Consume only offsets emitted authoritatively by PlatformIO/ESP-IDF.
+          # Never guess an address from a filename or board family.
+          for candidate in list(pathlib.Path('.').glob('**/flasher_args.json')):
+              try:
+                  payload = json.loads(candidate.read_text())
+                  for address, filename in payload.get('flash_files', {}).items(): offsets[pathlib.Path(filename).name] = int(address, 0)
+              except (OSError, ValueError, TypeError, json.JSONDecodeError): pass
+          for candidate in list(pathlib.Path('.').glob('**/flash_args')) + list(pathlib.Path('.').glob('**/flash_project_args')):
+              try:
+                  tokens = candidate.read_text().split()
+                  for index, token in enumerate(tokens[:-1]):
+                      if token.startswith('0x') and tokens[index + 1].lower().endswith('.bin'): offsets[pathlib.Path(tokens[index + 1]).name] = int(token, 16)
+              except (OSError, ValueError): pass
+          files = []
+          for path in sorted(root.rglob("*.bin")):
+              data = path.read_bytes()
+              files.append({
+                  "path": path.relative_to(root).as_posix(),
+                  "size": len(data),
+                  "sha256": hashlib.sha256(data).hexdigest(),
+                  "offset": offsets.get(path.name)
+              })
+          manifest = {
+              "schema": "https://espforge.dev/schemas/flash-manifest-v1.json",
+              "version": 1,
+              "chip": os.environ["ESPFORGE_CHIP"],
+              "framework": os.environ["ESPFORGE_FRAMEWORK"],
+              "commit": subprocess.check_output(["git", "rev-parse", "HEAD"], text=True).strip(),
+              "configuration_sha256": os.environ["ESPFORGE_CONFIG_DIGEST"] or None,
+              "analyzer_version": os.environ["ESPFORGE_ANALYZER_VERSION"] or None,
+              "files": files,
+              "warning": "Offsets are included only when emitted by the project toolchain. Manually verify any file whose offset is null."
+          }
+          root.mkdir(parents=True, exist_ok=True)
+          (root / "espforge-manifest.json").write_text(json.dumps(manifest, indent=2) + "\n")
+          PY
       - uses: actions/upload-artifact@65462800fd760344b1a7b4382951275a0abb4808
         with:
           name: espforge-firmware
