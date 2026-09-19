@@ -43,14 +43,14 @@ jobs:
           ./bin/arduino-cli config add board_manager.additional_urls https://espressif.github.io/arduino-esp32/package_esp32_index.json
           ./bin/arduino-cli config set library.enable_unsafe_install true
           ./bin/arduino-cli core update-index
-          ./bin/arduino-cli core install esp32:esp32@3.2.1
+          ./bin/arduino-cli core install esp32:esp32@3.3.4
 
       - name: Install detected libraries
         run: |
           arduino-cli lib install 'ArduinoJson@6.18.2'
           arduino-cli lib install 'TFT_eSPI@2.5.43'
           arduino-cli lib install 'XPT2046_Touchscreen@1.4'
-          arduino-cli lib install 'NimBLE-Arduino@1.4.2'
+          arduino-cli lib install 'NimBLE-Arduino@2.3.8'
           arduino-cli lib install 'LinkedList@1.3.3'
           arduino-cli lib install 'EspSoftwareSerial@8.1.0'
           arduino-cli lib install 'MicroNMEA@2.0.6'
@@ -163,39 +163,15 @@ jobs:
               text = re.sub(r'(?m)^\s*HardwareSerial\s+Serial2\s*\(GPS_SERIAL_INDEX\)\s*;\s*$', '#if SOC_UART_NUM <= 2\nHardwareSerial Serial2(GPS_SERIAL_INDEX);\n#endif', text, count=1)
               gps.write_text(text)
           PY
+      - name: Configure display for selected hardware
+        run: cp 'User_Setup_marauder_pancake.h' "$HOME/Arduino/libraries/TFT_eSPI/User_Setup.h"
       - name: Validate selected Arduino board configuration
-        run: arduino-cli board details --fqbn "esp32:esp32:esp32:PartitionScheme=huge_app" >/dev/null
-      - name: Configure selected hardware model
-        env:
-          ESPFORGE_BOARD_CONFIG: "eyJzZWxlY3RlZCI6Ik1BUkFVREVSX1Y4IiwibWFjcm9zIjpbIk1BUkFVREVSX1Y3XzEiLCJNQVJBVURFUl9WOCIsIk1BUkFVREVSX01JTklfVjMiLCJNQVJBVURFUl9USVRMRV9CWVRFUyJdLCJwYXRocyI6WyJlc3AzMl9tYXJhdWRlci9jb25maWdzLmgiXX0="
-        run: |
-          python - <<'PY'
-          import base64, json, os, pathlib, re
-          cfg = json.loads(base64.b64decode(os.environ["ESPFORGE_BOARD_CONFIG"]))
-          names = set(cfg["macros"])
-          for filename in cfg["paths"]:
-              path = pathlib.Path(filename)
-              if not path.is_file():
-                  continue
-              lines = path.read_text(errors="ignore").splitlines(keepends=True)
-              output = []
-              for line in lines:
-                  match = re.match(r"^(\s*)(?://\s*)?#\s*define\s+([A-Z][A-Z0-9_]*)(.*)$", line)
-                  if not match or match.group(2) not in names:
-                      output.append(line); continue
-                  prefix, name, suffix = match.groups()
-                  ending = chr(10) if line.endswith(chr(10)) else ""
-                  if name == cfg["selected"]:
-                      output.append(f"{prefix}#define {name}{suffix.rstrip()}{ending}")
-                  else:
-                      output.append(f"{prefix}// ESPForge disabled: #define {name}{suffix.rstrip()}{ending}")
-              path.write_text("".join(output))
-          PY
+        run: arduino-cli board details --fqbn "esp32:esp32:esp32c5:FlashSize=8M,PartitionScheme=default_8MB,PSRAM=enabled" >/dev/null
       - name: Compile firmware
-        run: arduino-cli compile --fqbn "esp32:esp32:esp32:PartitionScheme=huge_app" --output-dir firmware-output 'esp32_marauder'
+        run: arduino-cli compile --fqbn "esp32:esp32:esp32c5:FlashSize=8M,PartitionScheme=default_8MB,PSRAM=enabled" --build-property compiler.cpp.extra_flags="-DMARAUDER_PANCAKE" --output-dir firmware-output 'esp32_marauder'
       - name: Name firmware files for selected hardware
         env:
-          ESPFORGE_ARTIFACT_PREFIX: "Marauder-V8"
+          ESPFORGE_ARTIFACT_PREFIX: "Marauder-Pancake"
         run: |
           python - <<'PY'
           import os, pathlib, re
@@ -228,8 +204,8 @@ jobs:
       - name: Generate ESPForge flashing manifest
         env:
           ESPFORGE_FRAMEWORK: "arduino"
-          ESPFORGE_CHIP: "esp32"
-          ESPFORGE_CONFIG_DIGEST: "8b7f279f404ed0e320ae16d6ca84a5b75a0a5944c470662244dd8f12b1fd2500"
+          ESPFORGE_CHIP: "esp32c5"
+          ESPFORGE_CONFIG_DIGEST: "0a20c3ffa86ab5c77bee93b1f3f1ba82ee151b63f6020d018edaa5459f8107c0"
           ESPFORGE_ANALYZER_VERSION: "targets-v10"
         run: |
           python - <<'PY'
