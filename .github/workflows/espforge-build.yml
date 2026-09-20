@@ -169,14 +169,14 @@ jobs:
               gps.write_text(text)
           PY
       - name: Configure display for selected hardware
-        run: cp 'User_Setup_marauder_rev_feather.h' "$HOME/Arduino/libraries/TFT_eSPI/User_Setup.h"
+        run: cp 'User_Setup_marauder_m5cardputer.h' "$HOME/Arduino/libraries/TFT_eSPI/User_Setup.h"
       - name: Validate selected Arduino board configuration
-        run: arduino-cli board details --fqbn "esp32:esp32:esp32s2:PartitionScheme=min_spiffs,FlashSize=4M,PSRAM=enabled" >/dev/null
+        run: arduino-cli board details --fqbn "esp32:esp32:esp32s3:PartitionScheme=min_spiffs,FlashSize=8M,PSRAM=disabled" >/dev/null
       - name: Compile firmware
-        run: arduino-cli compile --fqbn "esp32:esp32:esp32s2:PartitionScheme=min_spiffs,FlashSize=4M,PSRAM=enabled" --build-property compiler.cpp.extra_flags="-DMARAUDER_REV_FEATHER" --output-dir firmware-output 'esp32_marauder'
+        run: arduino-cli compile --fqbn "esp32:esp32:esp32s3:PartitionScheme=min_spiffs,FlashSize=8M,PSRAM=disabled" --build-property compiler.cpp.extra_flags="-DMARAUDER_CARDPUTER" --output-dir firmware-output 'esp32_marauder'
       - name: Name firmware files for selected hardware
         env:
-          ESPFORGE_ARTIFACT_PREFIX: "Rev-Feather"
+          ESPFORGE_ARTIFACT_PREFIX: "M5Cardputer"
         run: |
           python - <<'PY'
           import os, pathlib, re
@@ -209,8 +209,8 @@ jobs:
       - name: Generate ESPForge flashing manifest
         env:
           ESPFORGE_FRAMEWORK: "arduino"
-          ESPFORGE_CHIP: "esp32s2"
-          ESPFORGE_CONFIG_DIGEST: "4113a4b1f50ff976dc1c20bb4f2a7c4262c67198b8c4b2ed6f93616265593881"
+          ESPFORGE_CHIP: "esp32s3"
+          ESPFORGE_CONFIG_DIGEST: "28862962aedab2db1ea5e1ffd8e58d3318982fa691808023f0b84cfd68323d13"
           ESPFORGE_ANALYZER_VERSION: "targets-v11"
         run: |
           python - <<'PY'
