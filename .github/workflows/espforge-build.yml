@@ -48,14 +48,14 @@ jobs:
           ./bin/arduino-cli config add board_manager.additional_urls https://espressif.github.io/arduino-esp32/package_esp32_index.json
           ./bin/arduino-cli config set library.enable_unsafe_install true
           ./bin/arduino-cli core update-index
-          ./bin/arduino-cli core install esp32:esp32@3.3.4
+          ./bin/arduino-cli core install esp32:esp32@2.0.11
 
       - name: Install detected libraries
         run: |
           arduino-cli lib install 'ArduinoJson@6.18.2'
           arduino-cli lib install 'TFT_eSPI@2.5.43'
           arduino-cli lib install 'XPT2046_Touchscreen@1.4'
-          arduino-cli lib install 'NimBLE-Arduino@2.3.8'
+          arduino-cli lib install 'NimBLE-Arduino@1.3.8'
           arduino-cli lib install 'LinkedList@1.3.3'
           arduino-cli lib install 'EspSoftwareSerial@8.1.0'
           arduino-cli lib install 'MicroNMEA@2.0.6'
@@ -169,12 +169,12 @@ jobs:
               gps.write_text(text)
           PY
       - name: Validate selected Arduino board configuration
-        run: arduino-cli board details --fqbn "esp32:esp32:esp32c6:CDCOnBoot=cdc,PartitionScheme=min_spiffs" >/dev/null
+        run: arduino-cli board details --fqbn "esp32:esp32:esp32s2:PartitionScheme=min_spiffs,FlashSize=4M,PSRAM=enabled" >/dev/null
       - name: Compile firmware
-        run: arduino-cli compile --fqbn "esp32:esp32:esp32c6:CDCOnBoot=cdc,PartitionScheme=min_spiffs" --build-property compiler.cpp.extra_flags="-DMARAUDER_M5_NANO_C6" --output-dir firmware-output 'esp32_marauder'
+        run: arduino-cli compile --fqbn "esp32:esp32:esp32s2:PartitionScheme=min_spiffs,FlashSize=4M,PSRAM=enabled" --build-property compiler.cpp.extra_flags="-DMARAUDER_FLIPPER" --output-dir firmware-output 'esp32_marauder'
       - name: Name firmware files for selected hardware
         env:
-          ESPFORGE_ARTIFACT_PREFIX: "M5NanoC6"
+          ESPFORGE_ARTIFACT_PREFIX: "Flipper-Zero-WiFi-Dev-Board"
         run: |
           python - <<'PY'
           import os, pathlib, re
@@ -207,8 +207,8 @@ jobs:
       - name: Generate ESPForge flashing manifest
         env:
           ESPFORGE_FRAMEWORK: "arduino"
-          ESPFORGE_CHIP: "esp32c6"
-          ESPFORGE_CONFIG_DIGEST: "4cdef5a82b74df76ba7de0d00e28ae9e5af6cb589b0dd2489362f58921799342"
+          ESPFORGE_CHIP: "esp32s2"
+          ESPFORGE_CONFIG_DIGEST: "0d5365410af33f6673b9a72b67d75afd29b20f327a2f65bb56c097ea832d0a2e"
           ESPFORGE_ANALYZER_VERSION: "targets-v11"
         run: |
           python - <<'PY'
