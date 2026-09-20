@@ -168,13 +168,15 @@ jobs:
               text = re.sub(r'(?m)^\s*HardwareSerial\s+Serial2\s*\(GPS_SERIAL_INDEX\)\s*;\s*$', '#if SOC_UART_NUM <= 2\nHardwareSerial Serial2(GPS_SERIAL_INDEX);\n#endif', text, count=1)
               gps.write_text(text)
           PY
+      - name: Configure display for selected hardware
+        run: cp 'User_Setup_marauder_rev_feather.h' "$HOME/Arduino/libraries/TFT_eSPI/User_Setup.h"
       - name: Validate selected Arduino board configuration
-        run: arduino-cli board details --fqbn "esp32:esp32:esp32s3:PartitionScheme=min_spiffs,FlashSize=4M" >/dev/null
+        run: arduino-cli board details --fqbn "esp32:esp32:esp32s2:PartitionScheme=min_spiffs,FlashSize=4M,PSRAM=enabled" >/dev/null
       - name: Compile firmware
-        run: arduino-cli compile --fqbn "esp32:esp32:esp32s3:PartitionScheme=min_spiffs,FlashSize=4M" --build-property compiler.cpp.extra_flags="-DMARAUDER_MULTIBOARD_S3" --output-dir firmware-output 'esp32_marauder'
+        run: arduino-cli compile --fqbn "esp32:esp32:esp32s2:PartitionScheme=min_spiffs,FlashSize=4M,PSRAM=enabled" --build-property compiler.cpp.extra_flags="-DMARAUDER_REV_FEATHER" --output-dir firmware-output 'esp32_marauder'
       - name: Name firmware files for selected hardware
         env:
-          ESPFORGE_ARTIFACT_PREFIX: "Flipper-Zero-Multi-Board-S3"
+          ESPFORGE_ARTIFACT_PREFIX: "Rev-Feather"
         run: |
           python - <<'PY'
           import os, pathlib, re
@@ -207,8 +209,8 @@ jobs:
       - name: Generate ESPForge flashing manifest
         env:
           ESPFORGE_FRAMEWORK: "arduino"
-          ESPFORGE_CHIP: "esp32s3"
-          ESPFORGE_CONFIG_DIGEST: "843687c48dbcb7e993b345e8b96c59963f5f02ff27a2649ddb8b64a98e9ea99a"
+          ESPFORGE_CHIP: "esp32s2"
+          ESPFORGE_CONFIG_DIGEST: "4113a4b1f50ff976dc1c20bb4f2a7c4262c67198b8c4b2ed6f93616265593881"
           ESPFORGE_ANALYZER_VERSION: "targets-v11"
         run: |
           python - <<'PY'
